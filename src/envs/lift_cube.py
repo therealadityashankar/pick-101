@@ -48,6 +48,7 @@ class LiftCubeCartesianEnv(gym.Env):
         curriculum_stage: int = 0,  # 0=normal, 1=cube in gripper lifted, 2=cube in gripper on table, 3=gripper near cube
         lock_wrist: bool = False,  # Lock wrist joints for stable grasping
         place_target: tuple[float, float] | None = None,  # (x, y) target for placement
+        scene_path: str | None = None,  # override default scene XML path
     ):
         super().__init__()
 
@@ -70,7 +71,8 @@ class LiftCubeCartesianEnv(gym.Env):
         self._open_gripper_count = 0  # Track consecutive steps with open gripper (for v15)
 
         # Load model
-        scene_path = Path(__file__).parent.parent.parent / "models/so101/lift_cube.xml"
+        if scene_path is None:
+            scene_path = Path(__file__).parent.parent.parent / "models/so101/lift_cube.xml"
         self.model = mujoco.MjModel.from_xml_path(str(scene_path))
         self.data = mujoco.MjData(self.model)
 
@@ -646,12 +648,16 @@ class LiftCubeCartesianEnv(gym.Env):
                 cam.distance = 0.8
                 cam.azimuth = 135
                 cam.elevation = -25
-            else:  # "wide2"
+            elif camera == "wide2":
                 # Diagonal view from other side
                 cam.lookat[:] = [0.25, -0.05, 0.05]
                 cam.distance = 0.8
                 cam.azimuth = 45
                 cam.elevation = -25
+            else:
+                # Named camera defined in XML (e.g. "topdown", "overview_cam")
+                self._renderer.update_scene(self.data, camera=camera)
+                return self._renderer.render()
             self._renderer.update_scene(self.data, camera=cam)
             return self._renderer.render()
         return None

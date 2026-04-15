@@ -2,13 +2,97 @@
 import argparse
 from pathlib import Path
 
+import cv2
 import imageio
+import mujoco
 import numpy as np
 import yaml
-from stable_baselines3 import SAC
+from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from src.envs.lift_cube import LiftCubeCartesianEnv
+
+# Half-size of cube (metres) — used to project bbox corners
+def _seg_obs_from_renderer(seg_renderer, data, geom_ids: dict, crop_x: int) -> dict:
+    """Render a segmentation frame and extract pixel masks per geom.
+
+    Returns a dict mapping each key in geom_ids to a boolean mask (H, W)
+    in the *cropped* 480×480 space.
+    """
+    seg_renderer.update_scene(data, camera="wrist_cam")
+    seg_renderer.enable_segmentation_rendering()
+    seg = seg_renderer.render()          # (H, W, 2): channel 0 = geom type, channel 1 = geom id
+    seg_renderer.disable_segmentation_rendering()
+
+    # Channel 0 = geom ID, channel 1 = objtype (always mjOBJ_GEOM for rendered geoms)
+    geom_id_map = seg[..., 0]  # (H, W) int32
+
+    w_full = geom_id_map.shape[1]       # 640
+    # Apply same center crop as the RGB wrist frame
+    cropped = geom_id_map[:, crop_x: w_full - crop_x]   # (480, 480)
+
+    masks = {}
+    for name, gid in geom_ids.items():
+        masks[name] = (cropped == gid)
+    return masks
+
+
+def _topmost_point(mask: np.ndarray) -> tuple[int, int] | None:
+    """Return (x, y) of the topmost (smallest y) pixel in mask, or None."""
+    ys, xs = np.where(mask)
+    if len(ys) == 0:
+        return None
+    idx = np.argmin(ys)
+    return int(xs[idx]), int(ys[idx])
+
+
+def _cube_corners_from_mask(mask: np.ndarray) -> np.ndarray | None:
+    """Return (N, 2) int array of convex hull corner points, or None."""
+    ys, xs = np.where(mask)
+    if len(ys) < 4:
+        return None
+    pts = np.column_stack([xs, ys]).astype(np.float32)
+    hull = cv2.convexHull(pts)
+    epsilon = 0.05 * cv2.arcLength(hull, True)
+    approx = cv2.approxPolyDP(hull, epsilon, True)
+    return approx.reshape(-1, 2).astype(int)
+
+
+def draw_obs_overlay(frame, seg_masks: dict, scale_x: float, scale_y: float) -> np.ndarray:
+    """Draw fingertip keypoints and cube top-face corners onto a wrist-cam frame.
+
+    seg_masks: dict from _seg_obs_from_renderer (keys: static_pad, moving_pad, cube)
+    scale_x/y: ratio of output frame size to 480×480 seg space
+    """
+    img = frame.copy()
+
+    def scale(pt):
+        if pt is None:
+            return None
+        return int(round(pt[0] * scale_x)), int(round(pt[1] * scale_y))
+
+    # --- Fingertip topmost points ---
+    for key, color, label in [
+        ("static_pad", (0, 80, 255), "S"),
+        ("moving_pad", (255, 80, 0), "M"),
+    ]:
+        pt = scale(_topmost_point(seg_masks.get(key, np.zeros((1, 1), bool))))
+        if pt is not None:
+            cv2.circle(img, pt, 6, color, -1)
+            cv2.putText(img, label, (pt[0] + 8, pt[1] + 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
+
+    # --- Cube top-face convex corners ---
+    corners = _cube_corners_from_mask(seg_masks.get("cube", np.zeros((1, 1), bool)))
+    if corners is not None:
+        scaled_corners = np.array([scale(c) for c in corners])
+        cv2.polylines(img, [scaled_corners], isClosed=True, color=(0, 220, 0), thickness=2)
+        for cx, cy in scaled_corners:
+            cv2.circle(img, (cx, cy), 4, (0, 255, 100), -1, cv2.LINE_AA)
+        cv2.putText(img, "cube", (scaled_corners[0][0], max(scaled_corners[0][1] - 6, 0)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 220, 0), 1, cv2.LINE_AA)
+
+    return img
 
 
 def main():
@@ -126,14 +210,28 @@ def main():
         print(f"Loaded normalization from {args.normalize}")
 
     # Load model
-    model = SAC.load(args.model)
+    model = PPO.load(args.model)
     print(f"Loaded model from {args.model}")
     if place_target:
         print(f"Place target: {place_target}")
 
+    # Wrist cam renderer: 640x480 -> center crop 480x480 -> resize to match other cams
+    wrist_renderer = mujoco.Renderer(env.model, height=480, width=640)
+    seg_renderer = mujoco.Renderer(env.model, height=480, width=640)
+
+    # Geom IDs needed for segmentation overlay
+    _seg_geom_ids = {
+        "static_pad": mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM, "static_finger_pad"),
+        "moving_pad": mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM, "moving_finger_pad"),
+        "cube":       mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM, "cube_top_face"),
+    }
+    _crop_x = (640 - 480) // 2  # 80px
+
     frames_closeup = []
     frames_wide = []
     frames_wide2 = []
+    frames_wrist = []
+    frames_obs_viz = []   # side-by-side: raw wrist | annotated wrist
     total_rewards = []
     successes = []
 
@@ -171,6 +269,22 @@ def main():
             if frame_wide2 is not None:
                 frames_wide2.append(frame_wide2)
 
+            # Render wrist cam: 640x480 -> center crop 480x480 -> resize to closeup size
+            wrist_renderer.update_scene(env.data, camera="wrist_cam")
+            wrist_frame = wrist_renderer.render()  # (480, 640, 3)
+            crop_x = (640 - 480) // 2
+            wrist_frame = wrist_frame[:, crop_x:crop_x + 480, :]  # (480, 480, 3)
+            if frame_closeup is not None:
+                h, w = frame_closeup.shape[:2]
+                wrist_frame = cv2.resize(wrist_frame, (w, h), interpolation=cv2.INTER_AREA)
+            frames_wrist.append(wrist_frame)
+
+            # Obs viz: raw wrist (left) | annotated wrist (right)
+            seg_masks = _seg_obs_from_renderer(seg_renderer, env.data, _seg_geom_ids, _crop_x)
+            out_h, out_w = wrist_frame.shape[:2]
+            annotated = draw_obs_overlay(wrist_frame, seg_masks, out_w / 480, out_h / 480)
+            frames_obs_viz.append(np.concatenate([wrist_frame, annotated], axis=1))
+
             if done[0]:
                 break
 
@@ -201,12 +315,20 @@ def main():
         wide2_path = output_path.with_stem(output_path.stem + "_wide2")
         imageio.mimsave(str(wide2_path), frames_wide2, fps=args.fps)
         print(f"Saved wide2 video to {wide2_path}")
+    if frames_wrist:
+        wrist_path = output_path.with_stem(output_path.stem + "_wrist")
+        imageio.mimsave(str(wrist_path), frames_wrist, fps=args.fps)
+        print(f"Saved wrist cam video to {wrist_path}")
+    if frames_obs_viz:
+        obs_viz_path = output_path.with_stem(output_path.stem + "_obs_viz")
+        imageio.mimsave(str(obs_viz_path), frames_obs_viz, fps=args.fps)
+        print(f"Saved obs viz video to {obs_viz_path}")
 
-    # Save combined video (all 3 views horizontally concatenated)
-    if frames_closeup and frames_wide and frames_wide2:
+    # Save combined video (all 4 views horizontally concatenated)
+    if frames_closeup and frames_wide and frames_wide2 and frames_wrist:
         frames_combined = [
-            np.concatenate([c, w, w2], axis=1)
-            for c, w, w2 in zip(frames_closeup, frames_wide, frames_wide2)
+            np.concatenate([c, w, w2, wr], axis=1)
+            for c, w, w2, wr in zip(frames_closeup, frames_wide, frames_wide2, frames_wrist)
         ]
         combined_path = output_path.with_stem(output_path.stem + "_combined")
         imageio.mimsave(str(combined_path), frames_combined, fps=args.fps)
@@ -216,6 +338,8 @@ def main():
     print(f"  Mean reward: {np.mean(total_rewards):.2f} +/- {np.std(total_rewards):.2f}")
     print(f"  Success rate: {100 * np.mean(successes):.1f}%")
 
+    wrist_renderer.close()
+    seg_renderer.close()
     env.close()
 
 

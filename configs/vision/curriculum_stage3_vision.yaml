@@ -1,0 +1,36 @@
+# Vision-based SAC: Stage 3 (gripper near cube, open — must grasp and lift)
+# Obs: 13-dim segmentation keypoints from wrist camera
+experiment:
+  name: "lift_vision_s3"
+  base_dir: "runs"
+
+training:
+  timesteps: 2000000
+  eval_freq: 10000
+  save_freq: 100000
+  seed: 42
+
+sac:
+  learning_rate: 3.0e-4
+  buffer_size: 500000
+  learning_starts: 5000
+  batch_size: 256
+  tau: 0.005
+  gamma: 0.99
+  train_freq: 1
+  gradient_steps: 1
+
+env:
+  normalize_obs: true
+  normalize_reward: true
+  max_episode_steps: 300
+  action_scale: 0.02
+  lift_height: 0.08
+  hold_steps: 150
+  reward_type: "dense"
+  reward_version: "v11"
+  curriculum_stage: 3
+  lock_wrist: true
+  cam_pos_noise: 0.003
+  cam_euler_noise: 0.05
+  obs_noise: 0.01

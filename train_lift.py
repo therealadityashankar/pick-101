@@ -1,4 +1,4 @@
-"""Train a lift policy using SAC with staged rewards.
+"""Train a lift policy using PPO with staged rewards.
 
 Uses lift_cube.py environment with continuous lift gradient:
 - Small lift reward without grasp (exploration signal)
@@ -11,9 +11,9 @@ from pathlib import Path
 
 import torch
 import yaml
-from stable_baselines3 import SAC
+from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
 from src.callbacks.plot_callback import PlotLearningCurveCallback
 from src.envs.lift_cube import LiftCubeCartesianEnv
@@ -57,7 +57,7 @@ def main():
     config = load_config(args.config)
     exp_cfg = config["experiment"]
     train_cfg = config["training"]
-    sac_cfg = config["sac"]
+    ppo_cfg = config["ppo"]
     env_cfg = config["env"]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -99,7 +99,8 @@ def main():
     # have different observation distributions
 
     # Create environments
-    env = DummyVecEnv([lambda: make_env(env_cfg)])
+    n_envs = train_cfg.get("n_envs", 4)
+    env = SubprocVecEnv([lambda: make_env(env_cfg)] * n_envs)
 
     # Load normalization stats only for resume (same task)
     if vec_normalize_path and vec_normalize_path.exists():
@@ -118,7 +119,7 @@ def main():
         if pretrained:
             print("Using fresh VecNormalize for curriculum transfer (not loading old stats)")
 
-    eval_env = DummyVecEnv([lambda: make_env(env_cfg)])
+    eval_env = SubprocVecEnv([lambda: make_env(env_cfg)])
     if vec_normalize_path and vec_normalize_path.exists():
         eval_env = VecNormalize.load(vec_normalize_path, eval_env)
         eval_env.training = False
@@ -148,7 +149,7 @@ def main():
         if checkpoints:
             latest_checkpoint = checkpoints[-1]
             resume_step = get_step_number(latest_checkpoint)
-            model = SAC.load(latest_checkpoint, env=env, device=device)
+            model = PPO.load(latest_checkpoint, env=env, device=device)
             model.tensorboard_log = str(output_dir / "tensorboard")
             print(f"Resumed from {latest_checkpoint} (step {resume_step})")
             # Update RESUME_INFO with checkpoint details
@@ -162,30 +163,27 @@ def main():
         pretrained_path = Path(pretrained)
         if not pretrained_path.exists():
             raise ValueError(f"Pretrained model not found: {pretrained_path}")
-        model = SAC.load(pretrained_path, env=env, device=device)
+        model = PPO.load(pretrained_path, env=env, device=device)
         model.tensorboard_log = str(output_dir / "tensorboard")
         # Reset timestep counter for fresh training
         model.num_timesteps = 0
         model._episode_num = 0
-        # Clear replay buffer for fresh experience
-        model.replay_buffer.reset()
         print(f"Loaded pretrained weights from {pretrained_path}")
         # Document transfer learning
         with open(output_dir / "PRETRAINED_INFO.txt", "w") as f:
             f.write(f"Pretrained from: {pretrained_path}\n")
             f.write(f"Timestamp: {timestamp}\n")
     else:
-        model = SAC(
+        model = PPO(
             "MlpPolicy",
             env,
-            learning_rate=sac_cfg["learning_rate"],
-            buffer_size=sac_cfg["buffer_size"],
-            learning_starts=sac_cfg["learning_starts"],
-            batch_size=sac_cfg["batch_size"],
-            tau=sac_cfg["tau"],
-            gamma=sac_cfg["gamma"],
-            train_freq=sac_cfg["train_freq"],
-            gradient_steps=sac_cfg["gradient_steps"],
+            learning_rate=ppo_cfg["learning_rate"],
+            n_steps=ppo_cfg["n_steps"],
+            batch_size=ppo_cfg["batch_size"],
+            n_epochs=ppo_cfg["n_epochs"],
+            gamma=ppo_cfg["gamma"],
+            gae_lambda=ppo_cfg["gae_lambda"],
+            clip_range=ppo_cfg["clip_range"],
             verbose=1,
             seed=train_cfg["seed"],
             device=device,
@@ -196,7 +194,7 @@ def main():
     checkpoint_callback = CheckpointCallback(
         save_freq=train_cfg["save_freq"],
         save_path=str(output_dir / "checkpoints"),
-        name_prefix="sac_lift",
+        name_prefix="ppo_lift",
     )
 
     eval_callback = EvalCallback(

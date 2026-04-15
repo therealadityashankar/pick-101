@@ -1,0 +1,39 @@
+# Projection-based PPO: T1 Stage 3 (pre-grasp positioning)
+# Trains gripper to straddle cube without touching, using v_straddle reward.
+# Transfer to curriculum_stage3_projection.yaml for the full lift task.
+# Obs: 13-dim from analytic 3D->2D projection (no renderer, fully parallelisable)
+experiment:
+  name: "lift_proj_t1_s3"
+  base_dir: "runs"
+
+training:
+  timesteps: 2000000
+  eval_freq: 5000
+  save_freq: 10000
+  video_eval_freq: 10000
+  seed: 42
+  n_envs: 8
+
+ppo:
+  learning_rate: 3.0e-4
+  n_steps: 2048
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+
+env:
+  normalize_obs: true
+  normalize_reward: true
+  max_episode_steps: 150
+  action_scale: 0.02
+  lift_height: 0.08
+  hold_steps: 10
+  reward_type: "dense"
+  reward_version: "v_straddle"
+  curriculum_stage: 3
+  lock_wrist: true
+  cam_pos_noise: 0.003
+  cam_euler_noise: 0.05
+  obs_noise: 0.01

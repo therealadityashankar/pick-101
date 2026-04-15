@@ -1,0 +1,46 @@
+# T2v2: Grip stage — transfer from t1v2 best_model
+# New features vs T1:
+#   - Variable cube size per episode (11mm–19mm half-size)
+#   - FOV randomisation ±7°
+#   - Extra obs: gripper_px_width, min_gripper_frac, stage
+#   - Single policy handles all three stages
+experiment:
+  name: "lift_proj_t2v2_s3"
+  base_dir: "runs"
+
+training:
+  timesteps: 2000000
+  eval_freq: 5000
+  save_freq: 10000
+  video_eval_freq: 10000
+  seed: 42
+  n_envs: 8
+
+ppo:
+  learning_rate: 3.0e-4
+  n_steps: 2048
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+
+env:
+  env_class: "t1v2"         # uses LiftCubeProjectionT1V2Env
+  normalize_obs: true
+  normalize_reward: true
+  max_episode_steps: 350
+  action_scale: 0.02
+  lift_height: 0.08
+  hold_steps: 10
+  reward_type: "dense"
+  reward_version: "v_unified_grip"
+  curriculum_stage: 3
+  lock_wrist: true
+  cam_pos_noise: 0.005
+  cam_euler_noise: 0.06
+  obs_noise: 0.01
+  # T1.1 domain randomisation
+  cube_size_range: [0.011, 0.019]   # half-size metres (22mm–38mm cube width)
+  fov_noise: 7.0                     # ±degrees
+  straddle_states_path: "data/straddle_states.npy"

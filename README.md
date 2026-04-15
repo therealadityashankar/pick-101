@@ -1,6 +1,8 @@
 # pick-101
 
-RL training for SO-101 robot manipulation (grasp, lift, place).
+RL training and real-robot deployment for the SO-101 arm — picks up a Jenga block using a projection-based policy trained entirely in simulation.
+
+https://github.com/user-attachments/assets/real_t1_run.mp4
 
 ## Installation
 
@@ -16,153 +18,221 @@ Assets (STL meshes) are stored via Git LFS and pulled automatically. Alternative
 cp -r SO-ARM100/Simulation/SO101/assets models/so101/
 ```
 
-## Quick Start
+---
 
-Run the top-down pick demo:
+## Running on the Real Robot
+
+### Prerequisites
+
+- SO-101 arm connected via USB
+- Printed calibration board (`make_aruco_board.py`) — flat on the table
+- Printed Jenga block tag (`make_jenga_tag.py`) — ID 101, attached to top face of Jenga block
+- Overhead camera pointing down at the board
+- Robot base tip positioned at the bottom-centre of the board
+
+### Step 1 — Print the board and block tag
 
 ```bash
-PYTHONPATH=. uv run python tests/test_topdown_pick.py --viewer
+# Calibration board (place flat on table, robot base at bottom-centre)
+uv run python make_aruco_board.py        # → aruco_board.pdf
+
+# Jenga block tag — ID 101, sized to fit the 25×75mm block face (use this one)
+uv run python make_jenga_tag.py          # → jenga_tag.pdf
+
+# (Optional) Full sheet of general-purpose bordered tags IDs 100–150
+uv run python make_bordered_tags.py      # → bordered_tags.pdf
 ```
+
+Print `jenga_tag.pdf` at **100% scale (no fit-to-page scaling)** and attach to the top face of the Jenga block.
+
+### Step 2 — Restore the trained model (after fresh clone)
+
+The best trained model is stored in `best_run/` and committed to git. Restore it into `runs/` so the scripts can find it:
+
+```bash
+uv run python export_best_run.py restore
+```
+
+### Step 3 — Calibrate joint mapping (first time or after hardware change)
+
+Maps real robot joint readings to simulation joint angles. Produces `calibration/joint_calibration.json`.
+
+```bash
+# Full calibration (all 6 joints)
+uv run python calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441
+
+# Single joint only (e.g. after re-mounting the wrist)
+uv run python calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joint wrist_roll
+```
+
+**Controls during calibration:**
+- Move the arm by hand to match the reference image shown
+- `SPACE` — record this position
+- `S` — skip this point
+- `Q` — quit
+
+### Step 4 — Calibrate block position detection
+
+Corrects for camera angle so the detected block position matches its true location on the board.
+
+```bash
+uv run python tests/test_aruco_homography_3d.py
+```
+
+1. Press **C** to start calibration
+2. Place the Jenga block (tag ID 101) at each of the 4 interior corners in order: **TL → TR → BL → BR**
+   - The block's physical corner should touch the interior corner each time
+   - Keep block orientation consistent across all 4 corners
+3. Press **SPACE** at each position to record it
+4. After 4 corners, the script prints `DELTA_X` / `DELTA_Y` values
+
+Paste the printed values into the `DELTA_X` / `DELTA_Y` constants at the top of `run_real_t1.py` and `visualize_irl_block.py`.
+
+**Fine-tuning manually:**
+
+If the corrected position (green dot in the rectified panel) is still slightly off, adjust `DELTA_X` / `DELTA_Y` (mm) directly:
+
+| Green dot position | Adjustment |
+|--------------------|------------|
+| Too far right | decrease `DELTA_X` |
+| Too far left | increase `DELTA_X` |
+| Too far down | decrease `DELTA_Y` |
+| Too far up | increase `DELTA_Y` |
+
+Copy the final values into `run_real_t1.py` and `visualize_irl_block.py`.
+
+### Step 5 — Test block detection (no robot required)
+
+```bash
+uv run python visualize_irl_block.py --camera 0
+```
+
+Place the Jenga block on the board and verify the 4 panels:
+
+| Panel | Shows |
+|-------|-------|
+| 1 — Camera | Raw camera feed with detected tags |
+| 2 — Sim side | Simulation side view with block at detected position |
+| 3 — Top-down (homography) | Rectified board view; green dot = corrected block position |
+| 4 — Sim top-down | Simulation top-down; block should match panel 3 |
+
+### Step 6 — Dry run (no robot)
+
+```bash
+uv run python run_real_t1.py --no-robot --camera 0
+```
+
+Verify all 5 panels look correct before connecting the robot.
+
+### Step 7 — Run the policy on the real robot
+
+```bash
+uv run python run_real_t1.py --port /dev/tty.usbmodem5A680089441
+```
+
+Video is saved to `real_t1_run.mp4`.
+
+---
+
+## Exporting / Sharing the Trained Model
+
+`best_run/` is committed to git. `runs/` is in `.gitignore`.
+
+```bash
+# Export best model from runs/ into best_run/ (then commit)
+uv run python export_best_run.py export
+
+# Restore best_run/ back into runs/ (after fresh clone)
+uv run python export_best_run.py restore
+```
+
+---
+
+## Training
+
+### Projection-based policy (T1 — what runs on the real robot)
+
+```bash
+uv run python train_lift_projection.py --config configs/state_based/curriculum_stage3.yaml
+```
+
+### Evaluate a checkpoint
+
+```bash
+uv run python eval_projection.py --run runs/lift_proj_t1_s3/<timestamp>
+```
+
+### State-based curriculum (SAC)
+
+```bash
+uv run python train_lift.py --config configs/state_based/curriculum_stage3.yaml
+uv run python eval_cartesian.py --run runs/lift_curriculum_s3/<timestamp>
+```
+
+### Plot learning curves
+
+```bash
+uv run python plot_learning_curves.py --run runs/lift_proj_t1_s3/<timestamp>
+```
+
+---
 
 ## Project Structure
 
 ```
-models/so101/               # Robot models and scenes
-├── so101_new_calib.xml     # Current robot with finger pads
-├── lift_cube.xml           # Scene with elliptic friction
-└── assets/                 # STL mesh files (Git LFS)
+models/so101/                   # MuJoCo robot models
+├── lift_cube.xml               # Main scene
+├── so101_new_calib.xml         # Robot with finger pads
+└── assets/                     # STL meshes (Git LFS)
 
 src/
-├── controllers/
-│   └── ik_controller.py    # Damped least-squares IK
 ├── envs/
-│   └── lift_cube.py        # Gym environment with reward versions
+│   ├── lift_cube.py            # Cartesian gym environment
+│   └── lift_cube_projection.py # Projection-obs environment (used by T1 policy)
+├── robot/
+│   ├── real_robot.py           # SO-101 hardware interface
+│   └── joint_calibration.py   # Real→sim joint angle mapping
 └── training/
-    ├── train_image_rl.py   # DrQ-v2 training script
-    ├── eval_checkpoint.py  # Evaluation with video generation
-    └── workspace.py        # SO101Workspace for RoboBase
+    └── train_image_rl.py       # DrQ-v2 image-based training
 
-configs/                    # Training configs
-├── drqv2_lift_s3_v19.yaml  # Image-based RL (working)
-└── curriculum_stage3.yaml  # State-based RL
+configs/state_based/            # Training configs
 
-tests/                      # Test scripts
+calibration/                    # Generated after running Step 3
+└── joint_calibration.json
+
+best_run/                       # Committed trained model
+├── best_model/best_model.zip
+├── vec_normalize.pkl
+└── config.yaml
+
+# Key scripts (root)
+run_real_t1.py                  # Real-robot runner (Steps 6–7)
+visualize_irl_block.py          # Block detection test (Step 5)
+tests/test_aruco_homography_3d.py  # Homography viewer + position calibration (Step 4)
+calibrate_joints_real.py        # Joint mapping calibration (Step 3)
+export_best_run.py              # Export / restore trained model (Step 2)
+make_aruco_board.py             # Generate printable calibration board (Step 1)
+make_jenga_tag.py               # Generate printable Jenga block tag ID 101 (Step 1)
+make_bordered_tags.py           # Generate full sheet of general-purpose bordered tags
+train_lift_projection.py        # Train T1 policy
+eval_projection.py              # Evaluate T1 policy
 ```
 
-## Test Scripts
+---
 
-| Script | Description |
-|--------|-------------|
-| `test_topdown_pick.py` | Current best - top-down pick with finger pads |
-| `test_ik_grasp.py` | Legacy IK grasp (original model) |
-| `test_horizontal_grasp.py` | Experimental horizontal approach |
+## Calibration Board Layout
 
-### Top-Down Pick (`test_topdown_pick.py`)
+The board is a 180×180mm square with ArUco border tags. The interior working area is 112×112mm. The robot base tip sits at the bottom-centre of the board.
 
-The current best pick-and-place implementation. Uses a clean 4-step sequence:
-
-1. **Move above block** - Position fingertips 30mm above cube, gripper open
-2. **Descend to block** - Lower to grasp height, gripper open
-3. **Close gripper** - Gradual close with contact detection, then tighten
-4. **Lift** - Raise cube to target height
-
-Key features:
-- Uses `gripperframe` site at fingertips for precise IK targeting
-- Finger pad collision boxes for stable multi-contact grasping
-- Elliptic cone friction model to prevent slip
-- Contact detection to stop closing at optimal grip force
-- Locked wrist joints (`wrist_flex=90°`, `wrist_roll=90°`) for top-down orientation
-
-```bash
-# Headless
-PYTHONPATH=. uv run python tests/test_topdown_pick.py
-
-# With viewer
-PYTHONPATH=. uv run python tests/test_topdown_pick.py --viewer
 ```
-
-## State-Based RL (SAC)
-
-Train an RL agent using low-dimensional state observations (joint positions, cube pose, etc.):
-
-```bash
-PYTHONPATH=. uv run python train_lift.py --config configs/curriculum_stage3.yaml
+┌─────────────────────────┐  ← 180mm
+│   [border ArUco tags]   │
+│  ┌───────────────────┐  │
+│  │                   │  │
+│  │   interior area   │  │
+│  │   112 × 112 mm    │  │
+│  │                   │  │
+│  └───────────────────┘  │
+│      ▲ robot base ▲     │
+└─────────────────────────┘
 ```
-
-Uses v11 reward. Achieves 100% success rate at 1M steps.
-
-The agent learns to:
-1. Approach the cube from above
-2. Close gripper to grasp
-3. Lift to 8cm height
-4. Hold for 3 seconds
-
-Training outputs are saved to `runs/lift_curriculum_s3/<timestamp>/`:
-- `checkpoints/` - Model checkpoints every 100k steps
-- `vec_normalize.pkl` - Observation normalization stats
-- `tensorboard/` - Training logs
-
-### Evaluation
-
-Evaluate a trained model and generate videos:
-
-```bash
-PYTHONPATH=. uv run python eval_cartesian.py \
-  --run runs/lift_curriculum_s3/<timestamp> \
-  --checkpoint 1000000
-```
-
-This runs 10 deterministic episodes and saves videos to the run directory.
-
-### Resume Training
-
-To continue training from a checkpoint:
-
-```bash
-PYTHONPATH=. uv run python train_lift.py \
-  --config configs/curriculum_stage3.yaml \
-  --resume runs/lift_curriculum_s3/<timestamp> \
-  --timesteps 500000  # Additional steps
-```
-
-## Image-Based RL (DrQ-v2)
-
-Train an RL agent using wrist camera observations (84x84 RGB images):
-
-```bash
-MUJOCO_GL=egl uv run python src/training/train_image_rl.py \
-    --config configs/drqv2_lift_s3_v19.yaml
-```
-
-Training takes ~8 hours for 2M steps.
-
-### Evaluate Checkpoint
-
-```bash
-MUJOCO_GL=egl uv run python src/training/eval_checkpoint.py \
-    runs/image_rl/<timestamp>/snapshots/2000000_snapshot.pt \
-    --num_episodes 10 \
-    --reward_version v19 \
-    --output_dir runs/image_rl/<timestamp>/eval
-```
-
-### X-Format Video (Side-by-Side Views)
-
-```bash
-MUJOCO_GL=egl uv run python src/training/eval_checkpoint.py \
-    runs/image_rl/<timestamp>/snapshots/2000000_snapshot.pt \
-    --num_episodes 5 \
-    --reward_version v19 \
-    --x-format \
-    --output_dir runs/image_rl/<timestamp>/eval_x_post
-```
-
-Uses v19 reward with per-finger reach and hold count bonus. Achieves 100% success rate at 2M steps.
-
-## Robot Model Variants
-
-| Model | Features | Use Case |
-|-------|----------|----------|
-| `so101_new_calib.xml` | Finger pads, fingertip sites | Current development |
-| `so101_ik_grasp.xml` | Original model (no pads) | Legacy compatibility |
-| `so101_horizontal_grasp.xml` | Horizontal approach config | Experimental |

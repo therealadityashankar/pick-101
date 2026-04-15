@@ -20,6 +20,7 @@
         <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
         <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
         <material name="cube_material" rgba="0.9 0.1 0.1 1" />  <!-- red cube to match IRL -->
+        <material name="cube_top_material" rgba="0.9 0.1 0.1 1" />  <!-- top face marker (same color, distinct geom for segmentation) -->
     </asset>
 
     <worldbody>
@@ -29,7 +30,7 @@
         <!-- Cube to pick up: 3x3x3cm (sized to fit gripper gap) -->
         <body name="cube" pos="0.40 -0.10 0.015">
             <freejoint name="cube_joint"/>
-            <geom name="cube_geom" type="box" size="0.015 0.015 0.015" mass="0.03" material="cube_material" friction="0.5 0.05 0.001"/>  <!-- wood friction -->
+            <geom name="cube_geom" type="box" size="0.015 0.015 0.015" mass="0.2" material="cube_material" friction="0.8 0.05 0.001" solref="0.01 1" solimp="0.95 0.99 0.001"/>  <!-- wood friction -->
         </body>
     </worldbody>
 

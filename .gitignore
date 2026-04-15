@@ -9,6 +9,30 @@ resources/
 runs/
 wandb/
 
+# Data collected during training / calibration
+data/
+boxes/
+
+# Generated printable assets (reproducible via make_*.py)
+aruco_board.png
+aruco_board.pdf
+aruco_tags.png
+aruco_tags.pdf
+aruco_walls.png
+aruco_walls.pdf
+bordered_tags.pdf
+bordered_tags_page1.png
+jenga_tag.png
+jenga_tag.pdf
+cube_template.pdf
+
+# Calibration outputs and snapshots
+*.npz
+calibration_snapshot_*.png
+
+# One-off check / plot outputs (root-level only)
+/*.png
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

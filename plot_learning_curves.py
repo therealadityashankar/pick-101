@@ -56,12 +56,22 @@ def plot_comparison(
     # Load data from all runs
     all_data = []
     for run_dir in run_dirs:
-        tb_dir = run_dir / "tensorboard" / "SAC_1"
-        if tb_dir.exists():
-            data = load_tensorboard_data(tb_dir)
-            all_data.append(data)
+        tb_root = run_dir / "tensorboard"
+        tb_dirs = sorted(
+            [d for d in tb_root.iterdir() if d.is_dir() and d.name[:3] in ("PPO", "SAC")],
+            key=lambda d: d.name,
+        ) if tb_root.exists() else []
+        if tb_dirs:
+            merged: dict = {}
+            for tb_dir in tb_dirs:
+                for tag, series in load_tensorboard_data(tb_dir).items():
+                    if tag not in merged:
+                        merged[tag] = {"steps": [], "values": []}
+                    merged[tag]["steps"].extend(series["steps"])
+                    merged[tag]["values"].extend(series["values"])
+            all_data.append(merged)
         else:
-            print(f"Warning: {tb_dir} not found")
+            print(f"Warning: no tensorboard dir found in {tb_root}")
             all_data.append({})
 
     # Filter to metrics that exist in at least one run
@@ -121,18 +131,32 @@ def plot_single_run(run_dir: Path, output_path: Path | None = None):
     if output_path is None:
         output_path = run_dir / "learning_curves.png"
 
-    tb_dir = run_dir / "tensorboard" / "SAC_1"
-    if not tb_dir.exists():
-        print(f"Tensorboard directory not found: {tb_dir}")
+    tb_root = run_dir / "tensorboard"
+    # Collect all PPO_* / SAC_* subdirs sorted so resumes are in order
+    tb_dirs = sorted(
+        [d for d in tb_root.iterdir() if d.is_dir() and d.name[:3] in ("PPO", "SAC")],
+        key=lambda d: d.name,
+    ) if tb_root.exists() else []
+    if not tb_dirs:
+        print(f"Tensorboard directory not found in: {tb_root}")
         return
 
-    data = load_tensorboard_data(tb_dir)
+    # Merge data across all runs (handles resume creating PPO_2, PPO_3, etc.)
+    data: dict = {}
+    for tb_dir in tb_dirs:
+        chunk = load_tensorboard_data(tb_dir)
+        for tag, series in chunk.items():
+            if tag not in data:
+                data[tag] = {"steps": [], "values": []}
+            data[tag]["steps"].extend(series["steps"])
+            data[tag]["values"].extend(series["values"])
 
     # Key metrics to plot
     metrics = [
         ("rollout/ep_rew_mean", "Episode Reward (Mean)"),
         ("eval/mean_reward", "Eval Reward"),
-        ("eval/success_rate", "Success Rate"),
+        ("rollout/success_rate", "Rollout Success Rate"),
+        ("eval/success_rate", "Eval Success Rate"),
         ("train/ent_coef", "Entropy Coefficient"),
     ]
 
@@ -143,7 +167,9 @@ def plot_single_run(run_dir: Path, output_path: Path | None = None):
         return
 
     n_metrics = len(available)
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    n_cols = 2
+    n_rows = (n_metrics + 1) // 2
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4 * n_rows))
     axes = axes.flatten()
 
     for idx, (metric, title) in enumerate(available):

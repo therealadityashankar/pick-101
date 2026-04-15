@@ -8,7 +8,7 @@ Legacy rewards (for checkpoint compatibility only):
 - v1-v10, v12-v18: Historical experiments
 """
 
-from .lift_rewards import reward_v11, reward_v19
+from .lift_rewards import reward_v11, reward_v11_proj, reward_v_straddle, reward_v_grip, reward_v_lift, reward_v_unified, reward_v_zone, reward_v_unified_zone, reward_v_unified_straddle, reward_v_unified_grip, reward_v_unified_lift, reward_v19
 from ._legacy_rewards import (
     reward_v1,
     reward_v2,
@@ -44,6 +44,16 @@ REWARD_FUNCTIONS = {
     "v10": reward_v10,
     # Working (state-based)
     "v11": reward_v11,
+    "v11_proj": reward_v11_proj,
+    "v_straddle": reward_v_straddle,
+    "v_grip": reward_v_grip,
+    "v_lift": reward_v_lift,
+    "v_unified": reward_v_unified,
+    "v_zone": reward_v_zone,
+    "v_unified_zone": reward_v_unified_zone,
+    "v_unified_straddle": reward_v_unified_straddle,
+    "v_unified_grip": reward_v_unified_grip,
+    "v_unified_lift": reward_v_unified_lift,
     # Legacy (image-based experiments)
     "v12": reward_v12,
     "v13": reward_v13,
@@ -56,4 +66,4 @@ REWARD_FUNCTIONS = {
     "v19": reward_v19,
 }
 
-__all__ = ["REWARD_FUNCTIONS", "reward_v11", "reward_v19"]
+__all__ = ["REWARD_FUNCTIONS", "reward_v11", "reward_v11_proj", "reward_v_straddle", "reward_v_grip", "reward_v_lift", "reward_v_unified", "reward_v_zone", "reward_v_unified_zone", "reward_v_unified_straddle", "reward_v_unified_grip", "reward_v_unified_lift", "reward_v19"]
