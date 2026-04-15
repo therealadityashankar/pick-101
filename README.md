@@ -2,7 +2,7 @@
 
 RL training and real-robot deployment for the SO-101 arm — picks up a Jenga block using a projection-based policy trained entirely in simulation.
 
-https://github.com/user-attachments/assets/real_t1_run.mp4
+[▶ Watch demo video](https://github.com/therealadityashankar/pick-101/raw/refs/heads/main/real_t1_run.mp4)
 
 ## Installation
 
