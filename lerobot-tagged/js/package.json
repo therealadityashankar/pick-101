@@ -1,0 +1,42 @@
+{
+  "name": "lerobot-tagged",
+  "version": "0.1.0",
+  "description": "ArUco board generation and tag-based robot arm localisation — browser, Node, and MuJoCo WASM",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "peerDependencies": {
+    "opencv-wasm": ">=4.8.0"
+  },
+  "peerDependenciesMeta": {
+    "opencv-wasm": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/therealadityashankar/pick-101"
+  }
+}

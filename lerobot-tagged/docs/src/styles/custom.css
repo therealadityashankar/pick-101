@@ -1,0 +1,17 @@
+/* Custom accent colour — matches the robot arm orange */
+:root {
+  --sl-color-accent-low: #3d1f00;
+  --sl-color-accent: #e86e00;
+  --sl-color-accent-high: #ffb86c;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #fff0e0;
+  --sl-color-accent: #c85a00;
+  --sl-color-accent-high: #7a3000;
+}
+
+/* Tighten up API reference tables */
+.sl-markdown-content table {
+  font-size: 0.875rem;
+}

@@ -1,0 +1,44 @@
+---
+title: lerobot-tagged
+description: ArUco board generation and tag-based robot arm localisation — browser, Node, and Python.
+template: splash
+hero:
+  tagline: Print a board. Detect a block. Pick it up.
+  actions:
+    - text: Get started
+      link: /pick-101/guides/board/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/therealadityashankar/pick-101
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What it does
+
+<CardGrid>
+  <Card title="Calibration Board" icon="document">
+    Generate a printable ArUco border board as a PDF — works in the browser, Node, and Python.
+  </Card>
+  <Card title="Tag Detection" icon="magnifier">
+    Find an ArUco tag in a camera frame and convert its pixel position to board-interior millimetres via a homography.
+  </Card>
+  <Card title="Offset Correction" icon="pencil">
+    Apply a simple (Δx, Δy) correction to account for perspective or lens distortion at a known object height.
+  </Card>
+  <Card title="MuJoCo Visualisation" icon="laptop">
+    Place a body at the detected position and render the scene — in Python or in the browser via WASM.
+  </Card>
+</CardGrid>
+
+## Install
+
+```bash
+# Python
+pip install lerobot-tagged
+
+# JavaScript / TypeScript
+npm install lerobot-tagged
+```
