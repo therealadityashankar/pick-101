@@ -16,14 +16,6 @@ uv sync
 
 ## Running on the Real Robot
 
-### Prerequisites
-
-- SO-101 arm connected via USB
-- Printed calibration board (`tags-and-borders/make_aruco_board.py`) — flat on the table
-- Printed Jenga block tag (`make_jenga_tag.py`) — ID 101, attached to top face of Jenga block
-- Overhead camera pointing down at the board
-- Robot base tip positioned at the bottom-centre of the board
-
 ### Step 1, Print the board and block tag
 
 ```bash
@@ -34,17 +26,17 @@ uv run python tags-and-borders/make_jenga_tag.py     # printables/jenga_tag.pdf
 # Full sheet of general-purpose bordered tags IDs 100–150
 uv run python tags-and-borders/make_bordered_tags.py # printables/bordered_tags.pdf
 ```
-NOTE : IMPORTANT do not print scale the pages while printing them
+NOTE : IMPORTANT do not  scale the pages while printing them - it needs to be printed at 100% scale, or the exact way it has been created
 
 ### Step 2, calibrate joints
 
 Maps real robot joint readings to simulation joint angles. Produces `.calibration/joint_calibration.json`.
 
 ```bash
-# Full calibration (all 6 joints)
+# full calibration
 uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441
 
-# Single joint only (e.g. after re-mounting the wrist)
+# single joint calibration
 uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joint wrist_roll
 ```
 
