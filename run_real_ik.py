@@ -51,11 +51,22 @@ BOARD_OFFSET_MM = 70.0   # distance from board bottom edge to robot base tip
 OUT_W = 600
 OUT_H = 600
 
-# ── Linear perspective correction (from tests/test_aruco_homography_3d.py) ───
+# ── Linear perspective correction (true = S*obs + B per axis) ────────────────
+# Loaded from .calibration/camera_calibration.npz, written by
+# calibration/calibrate_board.py. Falls back to the last known-good values
+# if no calibration file exists.
 CORR_Sx =  0.95596
 CORR_Bx =    3.644
 CORR_Sy =  0.93985
 CORR_By =   37.645
+
+_CAM_CAL_PATH = Path(".calibration/camera_calibration.npz")
+if _CAM_CAL_PATH.exists():
+    _cal = np.load(_CAM_CAL_PATH)
+    CORR_Sx, CORR_Bx = float(_cal["Sx"]), float(_cal["Bx"])
+    CORR_Sy, CORR_By = float(_cal["Sy"]), float(_cal["By"])
+    print(f"Perspective correction loaded from {_CAM_CAL_PATH} "
+          f"(Sx={CORR_Sx:.5f} Bx={CORR_Bx:.3f} Sy={CORR_Sy:.5f} By={CORR_By:.3f})")
 
 # ── Coordinate mapping ────────────────────────────────────────────────────────
 ROBOT_INT_X      = 56.0    # interior mm — lateral centre of robot base

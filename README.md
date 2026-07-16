@@ -1,19 +1,15 @@
-# pick-101 — IK Controller
+# pick-101 - Aruco + IK controller
 
-Inverse Kinematics controller for the SO-101 arm with vision-based calibration and real-robot deployment.
+This repo lets one detect the location of jenga blocks and place jenga blocks appropriately via the use of inverse kinematics
+
+some code was initially adapted from  forked from ggand0/pick-101 but, very little of that code still exists - except for the usage of dm_control, specifically the mapping within the src/ directory
 
 ## Installation
 
 ```bash
 git clone https://github.com/therealadityashankar/pick-101.git
 cd pick-101
-git submodule update --init --recursive
 uv sync
-```
-
-Assets (STL meshes) are stored via Git LFS and pulled automatically. Alternatively, copy from [SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100):
-```bash
-cp -r SO-ARM100/Simulation/SO101/assets models/so101/
 ```
 
 ---
@@ -28,22 +24,19 @@ cp -r SO-ARM100/Simulation/SO101/assets models/so101/
 - Overhead camera pointing down at the board
 - Robot base tip positioned at the bottom-centre of the board
 
-### Step 1 — Print the board and block tag
+### Step 1, Print the board and block tag
 
 ```bash
-# Calibration board (place flat on table, robot base at bottom-centre)
-uv run python tags-and-borders/make_aruco_board.py   # → printables/aruco_board.pdf
+uv run python tags-and-borders/make_aruco_board.py   # printables/aruco_board.pdf
 
-# Jenga block tag — ID 101, sized to fit the 25×75mm block face (use this one)
-uv run python tags-and-borders/make_jenga_tag.py     # → printables/jenga_tag.pdf
+uv run python tags-and-borders/make_jenga_tag.py     # printables/jenga_tag.pdf
 
-# (Optional) Full sheet of general-purpose bordered tags IDs 100–150
-uv run python tags-and-borders/make_bordered_tags.py # → printables/bordered_tags.pdf
+# Full sheet of general-purpose bordered tags IDs 100–150
+uv run python tags-and-borders/make_bordered_tags.py # printables/bordered_tags.pdf
 ```
+NOTE : IMPORTANT do not print scale the pages while printing them
 
-Print `jenga_tag.pdf` at **100% scale (no fit-to-page scaling)** and attach to the top face of the Jenga block.
-
-### Step 2 — Calibrate joint mapping (first time or after hardware change)
+### Step 2, calibrate joints
 
 Maps real robot joint readings to simulation joint angles. Produces `.calibration/joint_calibration.json`.
 
@@ -55,128 +48,24 @@ uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680
 uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joint wrist_roll
 ```
 
-**Controls during calibration:**
-- Move the arm by hand to match the reference image shown
-- `SPACE` — record this position
-- `S` — skip this point
-- `Q` — quit
-
-### Step 3 — Calibrate block position detection
+### Step 3, Calibrate block position detection
 
 Corrects for camera angle so the detected block position matches its true location on the board.
 
 ```bash
-uv run python tests/test_aruco_homography_3d.py
+uv run python calibration/calibrate_board.py --camera 0
 ```
 
-1. Press **C** to start calibration
-2. Place the Jenga block (tag ID 101) at each of the 4 interior corners in order: **TL → TR → BL → BR**
-   - The block's physical corner should touch the interior corner each time
-   - Keep block orientation consistent across all 4 corners
-3. Press **SPACE** at each position to record it
-4. After 4 corners, the script prints `DELTA_X` / `DELTA_Y` values
+1. press C to start calibration
+2. place the jenga block in the appropriately marked position
+3. press space to set the position
+4. repeat for all 4 corners
+5. After 4 corners, the script fits a per-axis linear correction and saves `.calibration/camera_calibration.npz` — `run_real_ik.py` and `visualize_irl_block.py` load it automatically, no copy-pasting needed
 
-Paste the printed values into the `DELTA_X` / `DELTA_Y` constants at the top of `run_real_ik.py` and `visualize_irl_block.py`.
-
-**Fine-tuning manually:**
-
-If the corrected position (green dot in the rectified panel) is still slightly off, adjust `DELTA_X` / `DELTA_Y` (mm) directly:
-
-| Green dot position | Adjustment |
-|--------------------|------------|
-| Too far right | decrease `DELTA_X` |
-| Too far left | increase `DELTA_X` |
-| Too far down | decrease `DELTA_Y` |
-| Too far up | increase `DELTA_Y` |
-
-Copy the final values into `run_real_ik.py` and `visualize_irl_block.py`.
-
-### Step 4 — Test block detection (no robot required)
-
-```bash
-uv run python visualize_irl_block.py --camera 0
-```
-
-Place the Jenga block on the board and verify the 4 panels:
-
-| Panel | Shows |
-|-------|-------|
-| 1 — Camera | Raw camera feed with detected tags |
-| 2 — Sim side | Simulation side view with block at detected position |
-| 3 — Top-down (homography) | Rectified board view; green dot = corrected block position |
-| 4 — Sim top-down | Simulation top-down; block should match panel 3 |
-
-### Step 5 — Dry run (no robot)
-
-```bash
-uv run python run_real_ik.py --no-robot --camera 0
-```
-
-Verify all 5 panels look correct before connecting the robot.
-
-### Step 6 — Run the IK controller on the real robot
+### Step 4, Run on a real robot
 
 ```bash
 uv run python run_real_ik.py --port /dev/tty.usbmodem5A680089441
 ```
 
 Video is saved to `real_ik_run.mp4`.
-
----
-
-## Project Structure
-
-```
-models/so101/                   # MuJoCo robot models
-├── lift_cube.xml               # Main scene with calibration board
-└── assets/                     # STL meshes (Git LFS)
-
-src/
-├── controllers/
-│   └── ik_controller.py        # Damped least-squares IK solver
-├── envs/
-│   ├── lift_cube.py            # Cartesian gym environment
-│   └── lift_cube_cartesian.py  # Environment with Cartesian action space
-└── robot/
-    ├── real_robot.py           # SO-101 hardware interface
-    └── joint_calibration.py    # Real→sim joint angle mapping
-
-calibration/                    # Calibration scripts
-├── calibrate_joints_real.py    # Joint mapping calibration (Step 2)
-└── calibrate_3d.py             # Camera perspective correction calibration
-
-.calibration/                   # Generated calibration data (gitignored)
-└── joint_calibration.json      # Real robot joint angle offsets
-
-# Key scripts (root)
-run_real_ik.py                  # Real-robot IK controller runner
-visualize_irl_block.py          # Block detection test / visualization
-tests/test_aruco_homography_3d.py  # Homography calibration tool
-tags-and-borders/               # Printable ArUco tag & board generators
-├── bordered_aruco.py           # Shared tag-rendering helpers
-├── make_aruco_board.py         # Calibration board (Step 1)
-├── make_jenga_tag.py           # Jenga block tag ID 101
-├── make_bordered_tags.py       # Full sheet of bordered tags
-└── make_aruco_tags.py          # Plain (non-bordered) tags
-
-printables/                     # Generated PDFs/PNGs (gitignored)
-```
-
----
-
-## Calibration Board Layout
-
-The board is a 180×180mm square with ArUco border tags. The interior working area is 112×112mm. The robot base tip sits at the bottom-centre of the board.
-
-```
-┌─────────────────────────┐  ← 180mm
-│   [border ArUco tags]   │
-│  ┌───────────────────┐  │
-│  │                   │  │
-│  │   interior area   │  │
-│  │   112 × 112 mm    │  │
-│  │                   │  │
-│  └───────────────────┘  │
-│      ▲ robot base ▲     │
-└─────────────────────────┘
-```
