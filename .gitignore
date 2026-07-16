@@ -1,4 +1,5 @@
 CLAUDE.md
+.DS_Store
 .venv*
 wait_and_train.sh
 **/*.mp4
