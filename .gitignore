@@ -16,18 +16,10 @@ recordings/
 data/
 boxes/
 
-# Generated printable assets (reproducible via make_*.py)
-aruco_board.png
-aruco_board.pdf
-aruco_tags.png
-aruco_tags.pdf
-aruco_walls.png
-aruco_walls.pdf
-bordered_tags.pdf
-bordered_tags_page1.png
-jenga_tag.png
-jenga_tag.pdf
-cube_template.pdf
+# Generated printable assets (reproducible via tags-and-borders/make_*.py)
+printables/
+bordered_tags*.pdf
+bordered_tags*.png
 
 # Calibration outputs and snapshots
 .calibration/

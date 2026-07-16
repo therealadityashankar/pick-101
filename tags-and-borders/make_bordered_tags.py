@@ -220,6 +220,7 @@ def build_uniform_pages(tag_mm: float, count: int, id_start: int, dpi=DPI):
 
 def save_pdf(pages, out_path, dpi=DPI):
     out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     c = rl_canvas.Canvas(str(out_path), pagesize=A4)
     for page in pages:
         pil = Image.fromarray(page)
@@ -242,7 +243,7 @@ def save_pdf(pages, out_path, dpi=DPI):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dpi", type=int, default=300)
-    ap.add_argument("--out", type=str, default="bordered_tags.pdf")
+    ap.add_argument("--out", type=str, default="printables/bordered_tags.pdf")
     ap.add_argument("--tag-mm",   type=float, default=None,
                     help="Uniform-sheet mode: fill pages with tags of this total size (mm)")
     ap.add_argument("--count",    type=int,   default=None,

@@ -108,6 +108,7 @@ def build_page(dpi=DPI):
 
 def save_pdf(page, out_path, dpi=DPI):
     out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     pil = Image.fromarray(page)
     tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     tmp.close()
@@ -126,7 +127,7 @@ def save_pdf(page, out_path, dpi=DPI):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dpi", type=int, default=300)
-    ap.add_argument("--out", type=str, default="jenga_tag.pdf")
+    ap.add_argument("--out", type=str, default="printables/jenga_tag.pdf")
     args = ap.parse_args()
 
     page = build_page(dpi=args.dpi)

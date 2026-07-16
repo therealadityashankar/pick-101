@@ -336,7 +336,7 @@ def main():
                         help="Side length of each ArUco tag in mm (default: 16)")
     parser.add_argument("--gap-mm",    type=float, default=2.0,
                         help="Gap between tag rows and between tags (default: 2)")
-    parser.add_argument("--out",       type=str,   default="aruco_board.pdf")
+    parser.add_argument("--out",       type=str,   default="printables/aruco_board.pdf")
     parser.add_argument("--dpi",       type=int,   default=300)
     args = parser.parse_args()
 
@@ -348,6 +348,7 @@ def main():
     )
 
     out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     save_pdf(img, out_path, args.square_mm, args.dpi)
 
     # Also save PNG preview

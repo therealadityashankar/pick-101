@@ -119,7 +119,7 @@ def main():
     parser.add_argument("--gap-mm",   type=float, default=5.0)
     parser.add_argument("--cols",     type=int,   default=4)
     parser.add_argument("--id-start", type=int,   default=100)
-    parser.add_argument("--out",      type=str,   default="aruco_tags.pdf")
+    parser.add_argument("--out",      type=str,   default="printables/aruco_tags.pdf")
     parser.add_argument("--dpi",      type=int,   default=300)
     args = parser.parse_args()
 
@@ -132,6 +132,7 @@ def main():
     )
 
     out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     save_pdf(img, out_path, args.dpi)
 
     png_path = out_path.with_suffix(".png")
