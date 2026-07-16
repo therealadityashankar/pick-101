@@ -5,7 +5,7 @@ Inverse Kinematics controller for the SO-101 arm with vision-based calibration a
 ## Installation
 
 ```bash
-git clone git@github.com:ggand0/pick-101.git
+git clone https://github.com/therealadityashankar/pick-101.git
 cd pick-101
 git submodule update --init --recursive
 uv sync
