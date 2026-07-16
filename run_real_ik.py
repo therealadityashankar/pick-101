@@ -399,10 +399,10 @@ def perform_pick_steps(robot):
 
     # Save the post-navigation pose so pick_tuner.py can restore it
     import json
-    Path("calibration").mkdir(exist_ok=True)
-    with open("calibration/pick_start_positions.json", "w") as f:
+    Path(".calibration").mkdir(exist_ok=True)
+    with open(".calibration/pick_start_positions.json", "w") as f:
         json.dump(pos, f, indent=2)
-    print("Saved pose → calibration/pick_start_positions.json")
+    print("Saved pose → .calibration/pick_start_positions.json")
 
     # ── Pick sequence (tuned with pick_tuner.py) ─────────────────────────────
     print("  pick: square wrist");   yield from ramp_joint_steps(robot, "wrist_roll", WRIST_ROLL_PICK, steps=25, delay=0.01)

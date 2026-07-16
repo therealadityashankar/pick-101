@@ -5,7 +5,7 @@ Run with python -i so you land in an interpreter with the robot connected:
     uv run python -i pick_tuner.py
 
 The robot starts at the pose saved by run_real_ik.py after IK navigation
-(calibration/pick_start_positions.json), so you're tuning from the exact
+(.calibration/pick_start_positions.json), so you're tuning from the exact
 state perform_pick() will start from.
 
 REPL helpers:
@@ -30,7 +30,7 @@ from pathlib import Path
 from src.robot.real_robot import RealRobot
 
 PORT       = "/dev/tty.usbmodem5A680089441"
-START_POSE = Path("calibration/pick_start_positions.json")
+START_POSE = Path(".calibration/pick_start_positions.json")
 
 robot = RealRobot(port=PORT)
 robot.connect()

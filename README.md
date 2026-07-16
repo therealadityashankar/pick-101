@@ -45,14 +45,14 @@ Print `jenga_tag.pdf` at **100% scale (no fit-to-page scaling)** and attach to t
 
 ### Step 2 — Calibrate joint mapping (first time or after hardware change)
 
-Maps real robot joint readings to simulation joint angles. Produces `calibration/joint_calibration.json`.
+Maps real robot joint readings to simulation joint angles. Produces `.calibration/joint_calibration.json`.
 
 ```bash
 # Full calibration (all 6 joints)
-uv run python calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441
+uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441
 
 # Single joint only (e.g. after re-mounting the wrist)
-uv run python calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joint wrist_roll
+uv run python calibration/calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joint wrist_roll
 ```
 
 **Controls during calibration:**
@@ -141,15 +141,17 @@ src/
     ├── real_robot.py           # SO-101 hardware interface
     └── joint_calibration.py    # Real→sim joint angle mapping
 
-calibration/                    # Generated calibration files
+calibration/                    # Calibration scripts
+├── calibrate_joints_real.py    # Joint mapping calibration (Step 2)
+└── calibrate_3d.py             # Camera perspective correction calibration
+
+.calibration/                   # Generated calibration data (gitignored)
 └── joint_calibration.json      # Real robot joint angle offsets
 
 # Key scripts (root)
 run_real_ik.py                  # Real-robot IK controller runner
 visualize_irl_block.py          # Block detection test / visualization
 tests/test_aruco_homography_3d.py  # Homography calibration tool
-calibrate_joints_real.py        # Joint mapping calibration (Step 3)
-calibrate_3d.py                 # Camera perspective correction calibration
 make_aruco_board.py             # Generate printable calibration board (Step 1)
 make_jenga_tag.py               # Generate printable Jenga block tag
 ```

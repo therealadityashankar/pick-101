@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-DEFAULT_PATH = Path(__file__).parent.parent.parent / "calibration/joint_calibration.json"
+DEFAULT_PATH = Path(__file__).parent.parent.parent / ".calibration/joint_calibration.json"
 
 JOINT_NAMES = ["shoulder_pan", "shoulder_lift", "elbow_flex",
                "wrist_flex", "wrist_roll", "gripper"]
