@@ -6,6 +6,8 @@ some code was initially adapted from  forked from ggand0/pick-101 but, very litt
 
 ## Installation
 
+this package needs uv installed to be run properly, this can be downloaded from https://docs.astral.sh/uv/
+
 ```bash
 git clone https://github.com/therealadityashankar/pick-101.git
 cd pick-101
