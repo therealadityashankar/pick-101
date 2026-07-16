@@ -1,8 +1,6 @@
-# pick-101
+# pick-101 — IK Controller
 
-RL training and real-robot deployment for the SO-101 arm — picks up a Jenga block using a projection-based policy trained entirely in simulation.
-
-[▶ Watch demo video](https://github.com/therealadityashankar/pick-101/raw/refs/heads/main/real_t1_run.mp4)
+Inverse Kinematics controller for the SO-101 arm with vision-based calibration and real-robot deployment.
 
 ## Installation
 
@@ -45,15 +43,7 @@ uv run python make_bordered_tags.py      # → bordered_tags.pdf
 
 Print `jenga_tag.pdf` at **100% scale (no fit-to-page scaling)** and attach to the top face of the Jenga block.
 
-### Step 2 — Restore the trained model (after fresh clone)
-
-The best trained model is stored in `best_run/` and committed to git. Restore it into `runs/` so the scripts can find it:
-
-```bash
-uv run python export_best_run.py restore
-```
-
-### Step 3 — Calibrate joint mapping (first time or after hardware change)
+### Step 2 — Calibrate joint mapping (first time or after hardware change)
 
 Maps real robot joint readings to simulation joint angles. Produces `calibration/joint_calibration.json`.
 
@@ -71,7 +61,7 @@ uv run python calibrate_joints_real.py --port /dev/tty.usbmodem5A680089441 --joi
 - `S` — skip this point
 - `Q` — quit
 
-### Step 4 — Calibrate block position detection
+### Step 3 — Calibrate block position detection
 
 Corrects for camera angle so the detected block position matches its true location on the board.
 
@@ -86,7 +76,7 @@ uv run python tests/test_aruco_homography_3d.py
 3. Press **SPACE** at each position to record it
 4. After 4 corners, the script prints `DELTA_X` / `DELTA_Y` values
 
-Paste the printed values into the `DELTA_X` / `DELTA_Y` constants at the top of `run_real_t1.py` and `visualize_irl_block.py`.
+Paste the printed values into the `DELTA_X` / `DELTA_Y` constants at the top of `run_real_ik.py` and `visualize_irl_block.py`.
 
 **Fine-tuning manually:**
 
@@ -99,9 +89,9 @@ If the corrected position (green dot in the rectified panel) is still slightly o
 | Too far down | decrease `DELTA_Y` |
 | Too far up | increase `DELTA_Y` |
 
-Copy the final values into `run_real_t1.py` and `visualize_irl_block.py`.
+Copy the final values into `run_real_ik.py` and `visualize_irl_block.py`.
 
-### Step 5 — Test block detection (no robot required)
+### Step 4 — Test block detection (no robot required)
 
 ```bash
 uv run python visualize_irl_block.py --camera 0
@@ -116,64 +106,21 @@ Place the Jenga block on the board and verify the 4 panels:
 | 3 — Top-down (homography) | Rectified board view; green dot = corrected block position |
 | 4 — Sim top-down | Simulation top-down; block should match panel 3 |
 
-### Step 6 — Dry run (no robot)
+### Step 5 — Dry run (no robot)
 
 ```bash
-uv run python run_real_t1.py --no-robot --camera 0
+uv run python run_real_ik.py --no-robot --camera 0
 ```
 
 Verify all 5 panels look correct before connecting the robot.
 
-### Step 7 — Run the policy on the real robot
+### Step 6 — Run the IK controller on the real robot
 
 ```bash
-uv run python run_real_t1.py --port /dev/tty.usbmodem5A680089441
+uv run python run_real_ik.py --port /dev/tty.usbmodem5A680089441
 ```
 
-Video is saved to `real_t1_run.mp4`.
-
----
-
-## Exporting / Sharing the Trained Model
-
-`best_run/` is committed to git. `runs/` is in `.gitignore`.
-
-```bash
-# Export best model from runs/ into best_run/ (then commit)
-uv run python export_best_run.py export
-
-# Restore best_run/ back into runs/ (after fresh clone)
-uv run python export_best_run.py restore
-```
-
----
-
-## Training
-
-### Projection-based policy (T1 — what runs on the real robot)
-
-```bash
-uv run python train_lift_projection.py --config configs/state_based/curriculum_stage3.yaml
-```
-
-### Evaluate a checkpoint
-
-```bash
-uv run python eval_projection.py --run runs/lift_proj_t1_s3/<timestamp>
-```
-
-### State-based curriculum (SAC)
-
-```bash
-uv run python train_lift.py --config configs/state_based/curriculum_stage3.yaml
-uv run python eval_cartesian.py --run runs/lift_curriculum_s3/<timestamp>
-```
-
-### Plot learning curves
-
-```bash
-uv run python plot_learning_curves.py --run runs/lift_proj_t1_s3/<timestamp>
-```
+Video is saved to `real_ik_run.mp4`.
 
 ---
 
@@ -181,41 +128,31 @@ uv run python plot_learning_curves.py --run runs/lift_proj_t1_s3/<timestamp>
 
 ```
 models/so101/                   # MuJoCo robot models
-├── lift_cube.xml               # Main scene
-├── so101_new_calib.xml         # Robot with finger pads
+├── lift_cube.xml               # Main scene with calibration board
 └── assets/                     # STL meshes (Git LFS)
 
 src/
+├── controllers/
+│   └── ik_controller.py        # Damped least-squares IK solver
 ├── envs/
 │   ├── lift_cube.py            # Cartesian gym environment
-│   └── lift_cube_projection.py # Projection-obs environment (used by T1 policy)
-├── robot/
-│   ├── real_robot.py           # SO-101 hardware interface
-│   └── joint_calibration.py   # Real→sim joint angle mapping
-└── training/
-    └── train_image_rl.py       # DrQ-v2 image-based training
+│   └── lift_cube_cartesian.py  # Environment with Cartesian action space
+└── robot/
+    ├── real_robot.py           # SO-101 hardware interface
+    └── joint_calibration.py    # Real→sim joint angle mapping
 
-configs/state_based/            # Training configs
-
-calibration/                    # Generated after running Step 3
-└── joint_calibration.json
-
-best_run/                       # Committed trained model
-├── best_model/best_model.zip
-├── vec_normalize.pkl
-└── config.yaml
+calibration/                    # Generated calibration files
+└── joint_calibration.json      # Real robot joint angle offsets
 
 # Key scripts (root)
-run_real_t1.py                  # Real-robot runner (Steps 6–7)
-visualize_irl_block.py          # Block detection test (Step 5)
-tests/test_aruco_homography_3d.py  # Homography viewer + position calibration (Step 4)
+run_real_ik.py                  # Real-robot IK controller runner
+visualize_irl_block.py          # Block detection test / visualization
+tests/test_aruco_homography_3d.py  # Homography calibration tool
 calibrate_joints_real.py        # Joint mapping calibration (Step 3)
-export_best_run.py              # Export / restore trained model (Step 2)
+calibrate_3d.py                 # Camera perspective correction calibration
+calibrate_camera_intrinsics.py  # Camera intrinsic calibration
 make_aruco_board.py             # Generate printable calibration board (Step 1)
-make_jenga_tag.py               # Generate printable Jenga block tag ID 101 (Step 1)
-make_bordered_tags.py           # Generate full sheet of general-purpose bordered tags
-train_lift_projection.py        # Train T1 policy
-eval_projection.py              # Evaluate T1 policy
+make_jenga_tag.py               # Generate printable Jenga block tag
 ```
 
 ---
