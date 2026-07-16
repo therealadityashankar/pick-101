@@ -18,8 +18,11 @@ Usage:
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import cv2
 import mujoco
@@ -276,7 +279,7 @@ def show_capture_screen(window, ref_img, joint, jdesc, pt_label, real_val, captu
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port",   required=True)
-    parser.add_argument("--output", default="calibration/joint_calibration.json")
+    parser.add_argument("--output", default=".calibration/joint_calibration.json")
     parser.add_argument("--joint",  default=None,
                         help="Calibrate only this joint (e.g. --joint wrist_roll). "
                              "Other joints are loaded from the existing output file.")

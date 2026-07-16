@@ -30,6 +30,7 @@ jenga_tag.pdf
 cube_template.pdf
 
 # Calibration outputs and snapshots
+.calibration/
 *.npz
 calibration_snapshot_*.png
 

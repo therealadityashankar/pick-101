@@ -150,7 +150,6 @@ visualize_irl_block.py          # Block detection test / visualization
 tests/test_aruco_homography_3d.py  # Homography calibration tool
 calibrate_joints_real.py        # Joint mapping calibration (Step 3)
 calibrate_3d.py                 # Camera perspective correction calibration
-calibrate_camera_intrinsics.py  # Camera intrinsic calibration
 make_aruco_board.py             # Generate printable calibration board (Step 1)
 make_jenga_tag.py               # Generate printable Jenga block tag
 ```
