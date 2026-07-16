@@ -35,10 +35,10 @@ cp -r SO-ARM100/Simulation/SO101/assets models/so101/
 uv run python make_aruco_board.py        # → aruco_board.pdf
 
 # Jenga block tag — ID 101, sized to fit the 25×75mm block face (use this one)
-uv run python make_jenga_tag.py          # → jenga_tag.pdf
+uv run python tags-and-borders/make_jenga_tag.py     # → jenga_tag.pdf
 
 # (Optional) Full sheet of general-purpose bordered tags IDs 100–150
-uv run python make_bordered_tags.py      # → bordered_tags.pdf
+uv run python tags-and-borders/make_bordered_tags.py # → bordered_tags.pdf
 ```
 
 Print `jenga_tag.pdf` at **100% scale (no fit-to-page scaling)** and attach to the top face of the Jenga block.
@@ -153,7 +153,11 @@ run_real_ik.py                  # Real-robot IK controller runner
 visualize_irl_block.py          # Block detection test / visualization
 tests/test_aruco_homography_3d.py  # Homography calibration tool
 make_aruco_board.py             # Generate printable calibration board (Step 1)
-make_jenga_tag.py               # Generate printable Jenga block tag
+tags-and-borders/               # Printable ArUco tag generators
+├── bordered_aruco.py           # Shared tag-rendering helpers
+├── make_jenga_tag.py           # Jenga block tag ID 101
+├── make_bordered_tags.py       # Full sheet of bordered tags
+└── make_aruco_tags.py          # Plain (non-bordered) tags
 ```
 
 ---
