@@ -1,0 +1,110 @@
+# Wall layout — per-block placement targets, keyed by ArUco tag ID.
+#
+# On each run, run_real_ik.py picks up the block named by --block-tag and places
+# it using the entry below. Add one block per row as you build up the wall.
+#
+# Coordinates are absolute sim metres:
+#   place_x  — distance away from robot (higher = farther out)
+#   place_y  — lateral, robot's left is +, right is -
+#   place_hover_z    — travel height on the way to the drop spot
+#   place_release_z  — EE height at which the jaw opens
+#   place_wrist_roll — abs wrist_roll before release (null = leave untouched)
+#
+# Any key omitted from a block falls back to the `defaults` block below.
+
+defaults:
+  place_hover_z: 0.15
+  place_release_z: 0.07
+  place_open_val: 50.0
+  place_wrist_roll: -15
+
+blocks:
+  # ── Row 1 (bottom) ──
+  101:
+    place_x: 0.3
+    place_y: 0.1
+
+  102:
+    place_x: 0.24
+    place_y: 0.1
+
+  103:
+    place_x: 0.18
+    place_y: 0.1
+
+  # ── Row 2 (stacked on top; higher release) ──
+  104:
+    place_x: 0.3
+    place_y: 0.1
+    place_release_z: 0.09
+
+  105:
+    place_x: 0.24
+    place_y: 0.1
+    place_release_z: 0.09
+
+  106:
+    place_x: 0.19
+    place_y: 0.1
+    place_release_z: 0.11
+
+# ── Sweeps — push/smooth blocks from point A to point B ──────────────────────
+# Invoke with `--sweep 1` or `--sweep 2`. The gripper closes, the arm descends
+# to sweep_z above start, drags to end at the given speed, then retreats.
+#   start / end : [x, y] absolute sim metres
+#   sweep_z     : EE height while dragging (low = pushes the blocks)
+#   hover_z     : travel/retreat height (clears the blocks)
+#   gripper     : jaw value while sweeping (0 = fully closed, a flat pusher)
+#   wrist_roll  : abs wrist_roll while sweeping (omit / null = leave untouched)
+#   post_end    : [x, y] optional — back off here (still low) before lifting, so
+#                 the retreat doesn't drag the just-aligned bricks out of place
+#   iters/delay : speed of the drag (more iters + higher delay = slower)
+sweeps:
+  1:  # smooth out freshly-laid bricks along a row
+    start:   [0.30, 0.10]
+    end:     [0.18, 0.10]
+    sweep_z: 0.131
+    hover_z: 0.15
+    gripper: 0.0
+    iters:   40
+    delay:   0.3
+
+  2:  # align bricks against the left wall post
+    start:   [0.3, 0.05]
+    end:     [0.3, 0.12]
+    sweep_z: 0.07
+    hover_z: 0.15
+    gripper: 0.0
+    wrist_roll: -50   # abs wrist_roll while sweeping (null = leave untouched)
+    iters:   21
+    delay:   0.03
+  
+  3:  # align bricks against the left wall post
+    start:   [0.24, 0.05]
+    end:     [0.24, 0.12]
+    sweep_z: 0.07
+    hover_z: 0.15
+    gripper: 0.0
+    wrist_roll: -50   # abs wrist_roll while sweeping (null = leave untouched)
+    iters:   21
+    delay:   0.03
+
+  4:  # align bricks against the left wall post
+    start:   [0.18, 0.05]
+    end:     [0.18, 0.12]
+    sweep_z: 0.07
+    hover_z: 0.15
+    gripper: 0.0
+    wrist_roll: -50   # abs wrist_roll while sweeping (null = leave untouched)
+    iters:   21
+    delay:   0.03
+
+  5:  # align bricks against the front wall post
+    start:    [0.12, 0.09]
+    end:      [0.19, 0.09]
+    post_end: [0.12, 0.09]   # back off away from the wall before lifting
+    sweep_z:  0.07
+    hover_z:  0.15
+    gripper:  0.0
+    iters:    21
+    delay:    0.03

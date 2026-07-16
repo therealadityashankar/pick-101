@@ -258,9 +258,12 @@ def save_pdf(img_rgb: np.ndarray, out_path: Path, square_mm: float, dpi: int = D
     # A4 dimensions in mm
     a4_w_mm, a4_h_mm = 210.0, 297.0
 
-    # Centre the square on the page
-    x_off_mm = (a4_w_mm - square_mm) / 2
-    y_off_mm = (a4_h_mm - square_mm) / 2
+    # Shift board up from centre to leave room for the robot base line below
+    x_off_mm  = (a4_w_mm - square_mm) / 2
+    y_off_mm  = (a4_h_mm - square_mm) / 2 + 40.0   # 40 mm above centre
+
+    # Robot base line sits 15 mm below the bottom edge of the board
+    robot_line_y_mm = y_off_mm - 70.0
 
     c = rl_canvas.Canvas(str(out_path), pagesize=A4)
 
@@ -297,6 +300,29 @@ def save_pdf(img_rgb: np.ndarray, out_path: Path, square_mm: float, dpi: int = D
     c.line(bar_x + bar_len, bar_y - 2 * mm, bar_x + bar_len, bar_y + 2 * mm)
     c.setFont("Helvetica-Bold", 8)
     c.drawCentredString(bar_x + bar_len / 2, bar_y + 3 * mm, "◄─────────── 100 mm ───────────►")
+
+    # ── Robot base placement line ─────────────────────────────────────────────
+    # A dashed horizontal line spanning the full board width with a label.
+    # Place the robot arm base tip so it sits on this line, centred left-right.
+    line_x0 = x_off_mm * mm
+    line_x1 = (x_off_mm + square_mm) * mm
+    line_y  = robot_line_y_mm * mm
+    c.setDash([4, 3])          # 4pt on, 3pt off
+    c.setLineWidth(1.2)
+    c.setStrokeColorRGB(0.8, 0.1, 0.1)
+    c.line(line_x0, line_y, line_x1, line_y)
+    c.setDash()                # reset dash
+
+    # Small tick at centre
+    centre_x = a4_w_mm / 2 * mm
+    c.setLineWidth(1.0)
+    c.line(centre_x, line_y - 3 * mm, centre_x, line_y + 3 * mm)
+
+    c.setFillColorRGB(0.8, 0.1, 0.1)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawCentredString(centre_x, line_y - 5.5 * mm,
+                        "▲  ROBOT BASE TIP — place here, centred  ▲")
+    c.setFillColorRGB(0, 0, 0)   # reset fill
 
     c.save()
     print(f"PDF saved to {out_path}")

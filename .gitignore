@@ -9,6 +9,7 @@ docs/research/
 resources/
 runs/
 wandb/
+recordings/
 
 # Data collected during training / calibration
 data/

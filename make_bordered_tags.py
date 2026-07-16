@@ -180,6 +180,44 @@ def build_pages(dpi=DPI):
     return pages
 
 
+def build_uniform_pages(tag_mm: float, count: int, id_start: int, dpi=DPI):
+    """Grid pages of identical-size bordered tags (IDs id_start..id_start+count-1)."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    margin_px = mm_to_px(MARGIN_MM, dpi)
+
+    step_mm      = tag_mm + TAG_GAP_MM + 4      # extra 4mm for the ID label
+    tags_per_row = int((A4_W_MM - 2 * MARGIN_MM) // (tag_mm + TAG_GAP_MM))
+    top_mm       = MARGIN_MM + 9                # below title
+    rows_per_pg  = int((A4_H_MM - top_mm - 12) // step_mm)
+    per_page     = tags_per_row * rows_per_pg
+
+    tag_px = mm_to_px(tag_mm, dpi)
+    pages  = []
+    for p in range((count + per_page - 1) // per_page):
+        page = new_page(dpi)
+        cv2.putText(page,
+                    f"Bordered ArUco tags (DICT_6X6_250) — {tag_mm:.0f} mm total — PRINT AT 100%",
+                    (margin_px, mm_to_px(7, dpi)),
+                    font, 0.38, (30, 30, 30), 1, cv2.LINE_AA)
+        for k in range(per_page):
+            i = p * per_page + k
+            if i >= count:
+                break
+            tag_id = id_start + i
+            col = k % tags_per_row
+            row = k // tags_per_row
+            x_px = mm_to_px(MARGIN_MM + col * (tag_mm + TAG_GAP_MM), dpi)
+            y_px = mm_to_px(top_mm + row * step_mm, dpi)
+            page[y_px : y_px + tag_px, x_px : x_px + tag_px] = \
+                make_tag_image(tag_id, tag_mm, dpi)
+            cv2.putText(page, f"{tag_id}",
+                        (x_px, y_px + tag_px + mm_to_px(3, dpi)),
+                        font, 0.26, (60, 60, 60), 1, cv2.LINE_AA)
+        draw_scale_bar(page, dpi)
+        pages.append(page)
+    return pages
+
+
 def save_pdf(pages, out_path, dpi=DPI):
     out_path = Path(out_path)
     c = rl_canvas.Canvas(str(out_path), pagesize=A4)
@@ -205,7 +243,26 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dpi", type=int, default=300)
     ap.add_argument("--out", type=str, default="bordered_tags.pdf")
+    ap.add_argument("--tag-mm",   type=float, default=None,
+                    help="Uniform-sheet mode: fill pages with tags of this total size (mm)")
+    ap.add_argument("--count",    type=int,   default=None,
+                    help="Uniform-sheet mode: how many tags (default: fill one page)")
+    ap.add_argument("--id-start", type=int,   default=100,
+                    help="Uniform-sheet mode: first tag ID (default 100)")
     args = ap.parse_args()
+
+    if args.tag_mm is not None:
+        tags_per_row = int((A4_W_MM - 2 * MARGIN_MM) // (args.tag_mm + TAG_GAP_MM))
+        rows = int((A4_H_MM - MARGIN_MM - 21) // (args.tag_mm + TAG_GAP_MM + 4))
+        count = args.count if args.count is not None else tags_per_row * rows
+        if args.id_start + count > 250:
+            count = 250 - args.id_start
+            print(f"Clamped to {count} tags (DICT_6X6_250 has IDs 0–249)")
+        pages = build_uniform_pages(args.tag_mm, count, args.id_start, dpi=args.dpi)
+        save_pdf(pages, args.out, dpi=args.dpi)
+        print(f"\n{count} bordered tags @ {args.tag_mm:.0f} mm, "
+              f"IDs {args.id_start}–{args.id_start + count - 1}")
+        return
 
     pages = build_pages(dpi=args.dpi)
     save_pdf(pages, args.out, dpi=args.dpi)

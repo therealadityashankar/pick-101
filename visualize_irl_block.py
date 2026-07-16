@@ -45,17 +45,20 @@ ARUCO_PARAMS.errorCorrectionRate       = 0.7
 BORDERED_IDS = set(range(100, 200))
 MARGIN_FRAC  = 48 / 200   # outer border relative to inner ArUco side
 
-# ── Manual position offset (tune these to correct block position) ─────────────
-DELTA_X =  0.0   # mm to add to observed X
-DELTA_Y =  -10   # mm to add to observed Y
+# ── Linear perspective correction (from tests/test_aruco_homography_3d.py) ───
+CORR_Sx =  0.95596
+CORR_Bx =    3.644
+CORR_Sy =  0.93985
+CORR_By =   37.645
 
 # ── Board geometry ────────────────────────────────────────────────────────────
-SQUARE_MM = 180.0
-TAG_MM    = 16.0
-GAP_MM    = 2.0
-N_OUTER   = 10
-N_INNER   = 8
-INSET_MM  = 2 * TAG_MM + GAP_MM   # = 34mm — board-corner to interior-corner
+SQUARE_MM       = 180.0
+TAG_MM          = 16.0
+GAP_MM          = 2.0
+N_OUTER         = 10
+N_INNER         = 8
+INSET_MM        = 2 * TAG_MM + GAP_MM   # = 34mm — board-corner to interior-corner
+BOARD_OFFSET_MM = 70.0   # distance from board bottom edge to robot base tip
 
 OUT_W = 600
 OUT_H = 600
@@ -67,7 +70,7 @@ OUT_H = 600
 #
 # ADJUST THESE if the simulated block appears in the wrong place:
 ROBOT_INT_X = 56.0    # interior mm — lateral position of robot base centre
-ROBOT_INT_Y = 146.0   # interior mm — forward edge of robot base
+ROBOT_INT_Y = (SQUARE_MM - INSET_MM) + BOARD_OFFSET_MM   # 216mm
 
 # ── Tuning constants — adjust these if the sim block position is wrong ────────
 #
@@ -180,7 +183,7 @@ def get_interior_pos(img_corners, H, scale, inset_mm):
 
 
 def perspective_correct(obs_x, obs_y, h_mm=None):
-    return obs_x + DELTA_X, obs_y + DELTA_Y
+    return CORR_Sx * obs_x + CORR_Bx, CORR_Sy * obs_y + CORR_By
 
 
 CUBE_HALF_MM = CUBE_HALF * 1000  # 15mm — half the cube side in interior coords
@@ -273,9 +276,9 @@ def draw_rectified(frame, H, square_mm, tag_mm, gap_mm, corners_dict,
 def board_to_sim(board_x_mm, board_y_mm):
     """Convert board mm coords (from board top-left) to simulation metres.
 
-    Board back edge (board_y = SQUARE_MM) aligns to ROBOT_BASE_TIP_X.
+    Board bottom edge is BOARD_OFFSET_MM in front of the robot tip in sim.
     """
-    sim_x = ROBOT_BASE_TIP_X + (SQUARE_MM - board_y_mm) / 1000.0
+    sim_x = ROBOT_BASE_TIP_X + (SQUARE_MM + BOARD_OFFSET_MM - board_y_mm) / 1000.0
     sim_y = -(board_x_mm - SQUARE_MM / 2) / 1000.0
     return sim_x, sim_y
 
